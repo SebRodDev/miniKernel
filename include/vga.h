@@ -27,5 +27,8 @@ enum vga_color {
 void vgaInit();
 void putPixel(int row, int column, enum vga_color color);
 void clearScreen();
+void drawRect(int row, int column, int width, int height, enum vga_color color);
+void drawCircle(int center_x, int center_y, int radius, enum vga_color color);
+void renderPong();
 
 #endif

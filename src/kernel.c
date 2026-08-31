@@ -6,7 +6,5 @@
 void kernel_main(void* multiboot_info) {
     (void) multiboot_info;
 
-    vgaInit();
-    clearScreen();
-
+    renderPong();
 }

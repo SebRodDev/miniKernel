@@ -1,5 +1,6 @@
 #include "vga.h"
 #include "io.h"
+#define PADDLE_HEIGHT 40
 
 static const size_t VGA_WIDTH = 320;
 static const size_t VGA_HEIGHT = 200;
@@ -10,6 +11,9 @@ static size_t terminal_row;
 static size_t terminal_column;
 static uint8_t terminal_color;
 static uint16_t* terminal_buffer;
+
+int ball_x, ball_y, ball_dx, ball_dy;
+int left_paddle_y, right_paddle_y;
 
 typedef struct {
     uint8_t index;
@@ -96,4 +100,99 @@ void clearScreen() {
          putPixel(row, column, VGA_COLOR_BLACK);
       }
    }
+}
+
+void drawRect(int row, int column, int width, int height, enum vga_color color) {
+   if (width <= 0 || height <= 0) {
+      return;
+   }
+
+   int endingWidth = width + column;
+   int endingHeight = row + height;
+   int startingRow = row < 0 ? 0 : row;
+   int startingColumn = column < 0 ? 0 : column;
+
+   if (endingWidth > (int)VGA_WIDTH) {
+      endingWidth = (int)VGA_WIDTH;
+   }
+   if (endingHeight > (int)VGA_HEIGHT) {
+      endingHeight = (int)VGA_HEIGHT;
+   }
+
+   for (int i = startingRow; i < endingHeight; i++) {
+      for (int j = startingColumn; j < endingWidth; j++) {
+         putPixel(i, j, color);
+      }
+   }
+}
+
+void drawCircle(int center_x, int center_y, int radius, enum vga_color color) {
+    for (int y = center_y - radius; y <= center_y + radius; y++) {
+        for (int x = center_x - radius; x <= center_x + radius; x++) {
+            // Check boundary limits of the screen
+            if (x >= 0 && x < VGA_WIDTH && y >= 0 && y < VGA_HEIGHT) {
+                int dx = x - center_x;
+                int dy = y - center_y;
+                // If the distance from center is within the radius, draw the pixel
+                if ((dx * dx) + (dy * dy) <= (radius * radius)) {
+                    putPixel(y, x, color);
+                }
+            }
+        }
+    }
+}
+
+void drawCenterLine(void) {
+    int dash_height = 8;
+    int gap = 6;
+    int x = VGA_WIDTH / 2;
+
+    for (int y = 0; y < VGA_HEIGHT; y += (dash_height + gap)) {
+        drawRect(y, x, 2, dash_height, VGA_COLOR_WHITE);
+    }
+}
+
+void initGame(void) {
+    ball_x = VGA_WIDTH / 2;
+    ball_y = VGA_HEIGHT / 2;
+    ball_dx = 2;
+    ball_dy = 1;
+
+    left_paddle_y = (VGA_HEIGHT / 2) - (PADDLE_HEIGHT / 2);
+    right_paddle_y = (VGA_HEIGHT / 2) - (PADDLE_HEIGHT / 2);
+}
+
+void pongUpdate() {
+   ball_x += ball_dx;
+   ball_y += ball_dy;
+
+   if (ball_x > VGA_HEIGHT || ball_x < 0) {
+      ball_dx *= -1;
+   }
+
+   // player scores cause it goes off the screen
+   if (ball_y < 0 || ball_y > VGA_WIDTH) {
+      ball_x = VGA_WIDTH / 2;
+      ball_y = VGA_HEIGHT / 2;
+   }
+}
+
+
+void renderPong() {
+   vgaInit();
+   initGame();
+
+   //while (1) {
+      clearScreen();
+      drawCenterLine();
+
+      // draw the ball
+      drawCircle(ball_x, ball_y, 4, VGA_COLOR_RED);
+
+      // right paddle
+      drawRect(right_paddle_y, 300, 4, PADDLE_HEIGHT, VGA_COLOR_BLUE);
+
+      // left paddle
+      drawRect(left_paddle_y, 20, 4, PADDLE_HEIGHT, VGA_COLOR_WHITE);
+      //}
 }
