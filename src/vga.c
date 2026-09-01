@@ -1,6 +1,8 @@
 #include "vga.h"
 #include "io.h"
 #define PADDLE_HEIGHT 40
+#define BALL_RADIUS 4
+#define PADDLE_WIDTH 4
 
 static const size_t VGA_WIDTH = 320;
 static const size_t VGA_HEIGHT = 200;
@@ -13,7 +15,7 @@ static uint8_t terminal_color;
 static uint16_t* terminal_buffer;
 
 int ball_x, ball_y, ball_dx, ball_dy;
-int left_paddle_y, right_paddle_y;
+int left_paddle_y, right_paddle_y, left_paddle_x, right_paddle_x;
 
 typedef struct {
     uint8_t index;
@@ -127,15 +129,16 @@ void drawRect(int row, int column, int width, int height, enum vga_color color) 
 }
 
 void drawCircle(int center_x, int center_y, int radius, enum vga_color color) {
-    for (int y = center_y - radius; y <= center_y + radius; y++) {
-        for (int x = center_x - radius; x <= center_x + radius; x++) {
+    // x represents the row, y represents the column
+    for (int x = center_x - radius; x <= center_x + radius; x++) {
+        for (int y = center_y - radius; y <= center_y + radius; y++) {
             // Check boundary limits of the screen
-            if (x >= 0 && x < VGA_WIDTH && y >= 0 && y < VGA_HEIGHT) {
+            if (x >= 0 && x < VGA_HEIGHT && y >= 0 && y < VGA_WIDTH) {
                 int dx = x - center_x;
                 int dy = y - center_y;
                 // If the distance from center is within the radius, draw the pixel
                 if ((dx * dx) + (dy * dy) <= (radius * radius)) {
-                    putPixel(y, x, color);
+                    putPixel(x, y, color);
                 }
             }
         }
@@ -153,27 +156,44 @@ void drawCenterLine(void) {
 }
 
 void initGame(void) {
-    ball_x = VGA_WIDTH / 2;
-    ball_y = VGA_HEIGHT / 2;
+    ball_x = VGA_HEIGHT / 2;
+    ball_y = VGA_WIDTH / 2;
     ball_dx = 2;
     ball_dy = 1;
 
-    left_paddle_y = (VGA_HEIGHT / 2) - (PADDLE_HEIGHT / 2);
-    right_paddle_y = (VGA_HEIGHT / 2) - (PADDLE_HEIGHT / 2);
+   left_paddle_x = (VGA_HEIGHT / 2) - (PADDLE_HEIGHT / 2);
+   right_paddle_x = (VGA_HEIGHT / 2) - (PADDLE_HEIGHT / 2);
+   left_paddle_y = 20;
+   right_paddle_y = 300;
 }
 
 void pongUpdate() {
+   // In this mode: x is vertical (row), y is horizontal (column).
    ball_x += ball_dx;
    ball_y += ball_dy;
 
-   if (ball_x > VGA_HEIGHT || ball_x < 0) {
+   if (ball_x + BALL_RADIUS > VGA_HEIGHT || ball_x - BALL_RADIUS < 0) {
       ball_dx *= -1;
    }
 
    // player scores cause it goes off the screen
-   if (ball_y < 0 || ball_y > VGA_WIDTH) {
-      ball_x = VGA_WIDTH / 2;
-      ball_y = VGA_HEIGHT / 2;
+   if (ball_y - BALL_RADIUS < 0 || ball_y + BALL_RADIUS > VGA_WIDTH) {
+      ball_x = VGA_HEIGHT / 2;
+      ball_y = VGA_WIDTH / 2;
+   }
+
+   int left_paddle_hit = (ball_x >= left_paddle_x &&
+                         ball_x <= left_paddle_x + PADDLE_HEIGHT &&
+                         ball_y - BALL_RADIUS >= left_paddle_y &&
+                         ball_y - BALL_RADIUS <= left_paddle_y + PADDLE_WIDTH);
+   int right_paddle_hit = (ball_x >= right_paddle_x &&
+                          ball_x <= right_paddle_x + PADDLE_HEIGHT &&
+                          ball_y + BALL_RADIUS >= right_paddle_y &&
+                          ball_y + BALL_RADIUS <= right_paddle_y + PADDLE_WIDTH);
+
+   if (left_paddle_hit || right_paddle_hit) {
+       ball_y = (left_paddle_hit) ? left_paddle_y + PADDLE_WIDTH - BALL_RADIUS : right_paddle_y - PADDLE_WIDTH - BALL_RADIUS;
+       ball_dy *= -1;
    }
 }
 
@@ -182,17 +202,24 @@ void renderPong() {
    vgaInit();
    initGame();
 
-   //while (1) {
+   int a = 0;
+
+   while (1) {
       clearScreen();
       drawCenterLine();
 
       // draw the ball
-      drawCircle(ball_x, ball_y, 4, VGA_COLOR_RED);
+      drawCircle(ball_x, ball_y, BALL_RADIUS, VGA_COLOR_RED);
 
       // right paddle
-      drawRect(right_paddle_y, 300, 4, PADDLE_HEIGHT, VGA_COLOR_BLUE);
+      drawRect(right_paddle_x, right_paddle_y, PADDLE_WIDTH, PADDLE_HEIGHT, VGA_COLOR_BLUE);
 
       // left paddle
-      drawRect(left_paddle_y, 20, 4, PADDLE_HEIGHT, VGA_COLOR_WHITE);
-      //}
+      drawRect(left_paddle_x, left_paddle_y, PADDLE_WIDTH, PADDLE_HEIGHT, VGA_COLOR_WHITE);
+
+      // random delay for now will change later
+      for (volatile int i = 0; i < 10000000; i++) { }
+
+      pongUpdate();
+   }
 }
